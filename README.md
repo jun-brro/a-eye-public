@@ -15,3 +15,4 @@ python server.py
 ```
 
 To set depth anything model, refer to depthanything_v2_test/README.md
+All checkpoints in this repo was downloaded from the referred route in depthanything_v2_test/README.md
