@@ -1,303 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-<<<<<<< HEAD
-  console.log(
-    "[A-EYE] DOMContentLoaded 이벤트 발생. 스크립트 초기화를 시작합니다."
-  );
-
-  let calibrationStream = null;
-
-  let globalAudioContext = null;
-  let audioInitialized = false;
-
-  function initializeAudio() {
-    if (!globalAudioContext) {
-      try {
-        globalAudioContext = new (window.AudioContext ||
-          window.webkitAudioContext)();
-        audioInitialized = true;
-        console.log("✅ 오디오 컨텍스트 초기화됨");
-      } catch (error) {
-        console.warn("오디오 컨텍스트 초기화 실패:", error);
-      }
-    }
-  }
-
-  function vibrate() {
-    if (navigator.vibrate) {
-      // 0.3초 진동, 0.1초 멈춤, 0.3초 진동 (경고 패턴)
-      navigator.vibrate([300, 100, 300]);
-      console.log("📳 진동 경고 실행됨!");
-      return true;
-    }
-    return false;
-  }
-
-  function playWarningBeep() {
-    let audioPlayed = false;
-    let vibrationPlayed = false;
-
-    vibrationPlayed = vibrate();
-
-    try {
-      const audioContext =
-        globalAudioContext ||
-        new (window.AudioContext || window.webkitAudioContext)();
-
-      if (audioContext.state === "suspended") {
-        audioContext.resume();
-      }
-
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.3);
-
-      audioPlayed = true;
-      console.log("⚠️ 경고음 재생됨!");
-    } catch (error) {
-      console.warn("Web Audio API 실패:", error);
-
-      try {
-        const audio = new Audio(
-          "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvGERBjas4O5PJUY"
-        );
-        audio.volume = 0.3;
-        audio
-          .play()
-          .then(() => {
-            audioPlayed = true;
-            console.log("⚠️ HTML5 오디오 재생됨!");
-          })
-          .catch((audioError) => {
-            console.warn("HTML5 오디오 실패:", audioError);
-          });
-      } catch (altError) {
-        console.warn("HTML5 오디오 생성 실패:", altError);
-      }
-    }
-
-    const methods = [];
-    if (vibrationPlayed) methods.push("진동");
-    if (audioPlayed) methods.push("소리");
-
-    if (methods.length > 0) {
-      console.log(`🚨 경고 알림: ${methods.join(" + ")}`);
-    } else {
-      console.warn("⚠️ 모든 경고 방법 실패");
-    }
-  }
-
-  // 깊이 분석 및 장애물 감지
-  async function analyzeDepthForObstacles(canvas) {
-    try {
-      const calibrationFactor = sessionStorage.getItem("calibrationFactor");
-      if (!calibrationFactor) {
-        return; // 보정 계수가 없으면 깊이 분석 건너뛰기
-      }
-
-      canvas.toBlob(async function (blob) {
-        const formData = new FormData();
-        formData.append("image", blob, "depth_check.jpg");
-        formData.append("calibrationFactor", calibrationFactor);
-
-        try {
-          const response = await fetch("/analyze_depth", {
-            method: "POST",
-            body: formData,
-          });
-
-          const data = await response.json();
-
-          if (response.ok && data.should_warn) {
-            playWarningBeep();
-            console.log(`🚨 장애물 감지! ${data.message} - 경고음 재생 시도`);
-          } else if (response.ok) {
-            console.log(`✅ 안전: ${data.message}`);
-          } else {
-            console.warn("깊이 분석 응답 오류:", data);
-          }
-        } catch (error) {
-          console.warn("깊이 분석 오류:", error);
-        }
-      }, "image/jpeg");
-    } catch (error) {
-      console.warn("깊이 분석 함수 오류:", error);
-    }
-  }
-
-  async function startCalibrationCamera() {
-    try {
-      if (!calibrationStream) {
-        calibrationStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-      }
-      const calibrationVideo = document.getElementById("calibration-video");
-      if (calibrationVideo) {
-        calibrationVideo.srcObject = calibrationStream;
-      }
-    } catch (error) {
-      console.error("보정 카메라 시작 실패:", error);
-      alert("보정용 카메라를 시작할 수 없습니다.");
-    }
-  }
-
-  function stopCalibrationCamera() {
-    if (calibrationStream) {
-      calibrationStream.getTracks().forEach((track) => track.stop());
-      calibrationStream = null;
-      const calibrationVideo = document.getElementById("calibration-video");
-      if (calibrationVideo) {
-        calibrationVideo.srcObject = null;
-      }
-    }
-  }
-
-  // 보정 기능 관련 요소 및 로직
-  const calibrationButton = document.getElementById("calibration-button");
-  console.log("[A-EYE] 보정 버튼 요소를 찾습니다:", calibrationButton);
-
-  const calibrationModal = document.getElementById("calibration-modal");
-  const closeCalibration = document.getElementById("close-calibration");
-  const nextCalibrationStep = document.getElementById("next-calibration-step");
-  const backCalibrationStep = document.getElementById("back-calibration-step");
-  const captureCalibration = document.getElementById("capture-calibration");
-  const calibrationStep1 = document.getElementById("calibration-step-1");
-  const calibrationStep2 = document.getElementById("calibration-step-2");
-  const calibrationHeight = document.getElementById("calibration-height");
-  const calibrationVideo = document.getElementById("calibration-video");
-  const calibrationStatus = document.getElementById("calibration-status");
-
-  if (calibrationButton) {
-    console.log("[A-EYE] 보정 버튼을 찾았으므로, 클릭 이벤트를 추가합니다.");
-    calibrationButton.addEventListener("click", function () {
-      console.log("[A-EYE] 보정 버튼이 클릭되었습니다.");
-      if (calibrationModal) {
-        calibrationModal.classList.remove("hidden");
-        if (calibrationStep1) calibrationStep1.style.display = "block";
-        if (calibrationStep2) calibrationStep2.style.display = "none";
-        if (calibrationHeight) calibrationHeight.focus();
-      } else {
-        console.error("[A-EYE] 보정 모달을 찾을 수 없습니다.");
-      }
-    });
-  } else {
-    console.error(
-      '[A-EYE] ID가 "calibration-button"인 보정 버튼을 찾지 못했습니다.'
-    );
-  }
-
-  if (closeCalibration) {
-    closeCalibration.addEventListener("click", function () {
-      if (calibrationModal) calibrationModal.classList.add("hidden");
-      stopCalibrationCamera();
-    });
-  }
-
-  if (nextCalibrationStep) {
-    nextCalibrationStep.addEventListener("click", function () {
-      const height = parseFloat(calibrationHeight.value);
-      if (!height || height <= 0) {
-        alert("올바른 키를 입력해주세요.");
-        return;
-      }
-      if (calibrationStep1) calibrationStep1.style.display = "none";
-      if (calibrationStep2) calibrationStep2.style.display = "block";
-      startCalibrationCamera();
-    });
-  }
-
-  if (backCalibrationStep) {
-    backCalibrationStep.addEventListener("click", function () {
-      if (calibrationStep2) calibrationStep2.style.display = "none";
-      if (calibrationStep1) calibrationStep1.style.display = "block";
-      stopCalibrationCamera();
-    });
-  }
-
-  if (captureCalibration) {
-    captureCalibration.addEventListener("click", async function () {
-      if (!calibrationStream) {
-        alert("카메라가 준비되지 않았습니다.");
-        return;
-      }
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = calibrationVideo.videoWidth;
-        canvas.height = calibrationVideo.videoHeight;
-        const context = canvas.getContext("2d");
-        context.drawImage(calibrationVideo, 0, 0, canvas.width, canvas.height);
-
-        canvas.toBlob(async function (blob) {
-          const formData = new FormData();
-          formData.append("image", blob, "calibration.jpg");
-          const userHeight = parseFloat(calibrationHeight.value);
-          formData.append("height", userHeight);
-
-          try {
-            const response = await fetch("/calibrate", {
-              method: "POST",
-              body: formData,
-            });
-            const data = await response.json();
-
-            if (response.ok) {
-              sessionStorage.setItem(
-                "calibrationFactor",
-                data.calibrationFactor
-              );
-
-              if (calibrationStatus) {
-                calibrationStatus.textContent = `보정 완료 (계수: ${data.calibrationFactor.toFixed(
-                  3
-                )})`;
-                calibrationStatus.style.color = "#00ff00";
-              }
-              alert("거리 보정이 완료되었습니다.");
-              if (calibrationModal) calibrationModal.classList.add("hidden");
-              stopCalibrationCamera();
-              // 메인 카메라 재시작
-              setTimeout(() => {
-                logPerformance("보정 완료 후 카메라 재시작 시도");
-                startCamera();
-              }, 1000);
-            } else {
-              throw new Error(data.error);
-            }
-          } catch (error) {
-            console.error("보정 오류:", error);
-            alert(`보정 중 오류가 발생했습니다: ${error.message}`);
-          }
-        }, "image/jpeg");
-      } catch (error) {
-        console.error("촬영 오류:", error);
-        alert(`촬영 중 오류가 발생했습니다: ${error.message}`);
-      }
-    });
-  }
-
-  if (calibrationModal) {
-    calibrationModal.addEventListener("click", function (event) {
-      if (event.target === calibrationModal) {
-        calibrationModal.classList.add("hidden");
-        stopCalibrationCamera();
-        setTimeout(() => {
-          logPerformance("보정 모달 닫기 후 카메라 재시작 시도");
-          startCamera();
-        }, 1000);
-      }
-    });
-  }
-
-=======
->>>>>>> e5af032 (Resolve merge conflicts)
   const video = document.getElementById("video");
   const captureButton = document.getElementById("capture-button");
   const statusDiv = document.getElementById("status");
@@ -313,60 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const speechSpeedButton = document.getElementById("speech-speed-button");
   const currentSpeedDisplay = document.getElementById("current-speed-display");
-  const enableAudioButton = document.getElementById("enable-audio-button");
-  const audioStatusDisplay = document.getElementById("audio-status-display");
-
-  const calibrationButton = document.getElementById("calibration-button");
-  const calibrationModal = document.getElementById("calibration-modal");
-  const closeCalibration = document.getElementById("close-calibration");
-  const nextCalibrationStep = document.getElementById("next-calibration-step");
-  const backCalibrationStep = document.getElementById("back-calibration-step");
-  const captureCalibration = document.getElementById("capture-calibration");
-  const calibrationStep1 = document.getElementById("calibration-step-1");
-  const calibrationStep2 = document.getElementById("calibration-step-2");
-  const calibrationHeight = document.getElementById("calibration-height");
-  const calibrationVideo = document.getElementById("calibration-video");
-  const calibrationStatus = document.getElementById("calibration-status");
-
-  let calibrationStream = null;
   let currentTTSSpeed = 3;
   let speechRecognition = null;
   let isListeningForSpeed = false;
-
-<<<<<<< HEAD
-  const enableAudioButton = document.getElementById("enable-audio-button");
-  const audioStatusDisplay = document.getElementById("audio-status-display");
-  let audioEnabled = false;
-=======
-  // 오디오 컨텍스트 초기화
-  let globalAudioContext = null;
-  let audioInitialized = false;
-
-  function initializeAudio() {
-    if (audioInitialized) return;
-    try {
-      globalAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      audioInitialized = true;
-      console.log("✅ 오디오 컨텍스트가 성공적으로 초기화되었습니다.");
-    } catch (e) {
-      console.error("오디오 컨텍스트를 초기화할 수 없습니다.", e);
-    }
-  }
-
-  function playWarningBeep() {
-    try {
-      const beepSound = document.getElementById('beep-sound');
-      // play()는 사용자의 상호작용 내에서 호출될 때 가장 잘 동작합니다.
-      // analyzeDepthForObstacles는 비동기적으로 호출되므로, 여기서 직접 play()를 부르는 것은
-      // 모바일에서 차단될 수 있습니다. 대신, 오디오를 미리 로드해두고 필요할 때 재생합니다.
-      if (beepSound && beepSound.src) {
-        beepSound.play().catch(e => console.error("경고음 재생 실패:", e));
-      }
-    } catch (error) {
-      console.error("경고음 재생 오류:", error);
-    }
-  }
->>>>>>> e5af032 (Resolve merge conflicts)
 
   let isProcessing = false;
   let isAutoCapturing = false;
@@ -377,10 +27,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let watchId = null;
 
   settingsButton.addEventListener("click", () => {
-<<<<<<< HEAD
-    initializeAudio();
-=======
->>>>>>> e5af032 (Resolve merge conflicts)
     settingsPanel.classList.remove("hidden");
     setTimeout(() => {
       speechSpeedButton.focus();
@@ -399,21 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-<<<<<<< HEAD
-    // ESC 키로 보정 모달 닫기
-    if (
-      event.key === "Escape" &&
-      calibrationModal &&
-      !calibrationModal.classList.contains("hidden")
-    ) {
-      calibrationModal.classList.add("hidden");
-      stopCalibrationCamera();
-      return;
-    }
-
-    // ESC 키로 길안내 중지
-=======
->>>>>>> e5af032 (Resolve merge conflicts)
     if (
       event.key === "Escape" &&
       settingsPanel.classList.contains("hidden") &&
@@ -440,128 +71,6 @@ document.addEventListener("DOMContentLoaded", () => {
       settingsButton.focus();
     }
   });
-
-  enableAudioButton.addEventListener("click", () => {
-    try {
-      const beepSound = document.getElementById('beep-sound');
-
-      // 사용자가 버튼을 누른 이 시점에 오디오를 로드하여 재생 준비
-      beepSound.load();
-
-      enableAudioButton.textContent = "🔊 경고음 활성화됨";
-      enableAudioButton.disabled = true;
-      audioStatusDisplay.textContent = "경고음: 활성화됨";
-      audioStatusDisplay.style.color = "#00ff00";
-
-      console.log("✅ 경고음이 활성화되었습니다. 테스트 경고음을 재생합니다.");
-
-      // 로드가 완료되면 테스트 비프음을 재생
-      beepSound.oncanplaythrough = () => {
-        playWarningBeep();
-        // 이벤트 리스너가 반복해서 실행되지 않도록 null 처리
-        beepSound.oncanplaythrough = null;
-      };
-
-    } catch (e) {
-      console.error("경고음 활성화 중 오류 발생", e);
-      audioStatusDisplay.textContent = "경고음: 활성화 실패";
-      audioStatusDisplay.style.color = "#ff0000";
-    }
-  });
-
-  calibrationButton.addEventListener("click", () => {
-    calibrationModal.classList.remove("hidden");
-    calibrationStep1.style.display = "block";
-    calibrationStep2.style.display = "none";
-    calibrationHeight.focus();
-  });
-
-  closeCalibration.addEventListener("click", () => {
-    calibrationModal.classList.add("hidden");
-    stopCalibrationCamera();
-  });
-
-  nextCalibrationStep.addEventListener("click", () => {
-    if (!calibrationHeight.value || calibrationHeight.value <= 0) {
-      alert("올바른 키를 입력해주세요.");
-      return;
-    }
-    calibrationStep1.style.display = "none";
-    calibrationStep2.style.display = "block";
-    startCalibrationCamera();
-  });
-
-  backCalibrationStep.addEventListener("click", () => {
-    calibrationStep2.style.display = "none";
-    calibrationStep1.style.display = "block";
-    stopCalibrationCamera();
-  });
-
-  captureCalibration.addEventListener("click", async () => {
-    if (!calibrationStream) {
-      alert("카메라가 준비되지 않았습니다.");
-      return;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = calibrationVideo.videoWidth;
-    canvas.height = calibrationVideo.videoHeight;
-    const context = canvas.getContext("2d");
-    context.drawImage(calibrationVideo, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(async (blob) => {
-      const formData = new FormData();
-      formData.append("image", blob, "calibration.jpg");
-      formData.append("height", calibrationHeight.value);
-
-      try {
-        const response = await fetch("/calibrate", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await response.json();
-        if (response.ok) {
-          sessionStorage.setItem("calibrationFactor", data.calibrationFactor);
-          calibrationStatus.textContent = `보정 완료 (계수: ${data.calibrationFactor.toFixed(3)})`;
-          calibrationStatus.style.color = "#00ff00";
-          alert("보정이 완료되었습니다.");
-          calibrationModal.classList.add("hidden");
-          stopCalibrationCamera();
-        } else {
-          throw new Error(data.error || "알 수 없는 오류");
-        }
-      } catch (error) {
-        alert(`보정 실패: ${error.message}`);
-        calibrationStatus.textContent = "보정 실패";
-        calibrationStatus.style.color = "#ff0000";
-      }
-    }, "image/jpeg");
-  });
-
-  async function startCalibrationCamera() {
-    try {
-      if (!calibrationStream) {
-        calibrationStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      }
-      calibrationVideo.srcObject = calibrationStream;
-    } catch (error) {
-      console.error("보정 카메라 시작 실패:", error);
-      alert("보정용 카메라를 시작할 수 없습니다.");
-    }
-  }
-
-  function stopCalibrationCamera() {
-    if (calibrationStream) {
-      calibrationStream.getTracks().forEach(track => track.stop());
-      calibrationStream = null;
-      // 메인 비디오 스트림은 건드리지 않도록 수정
-      const calibrationVideo = document.getElementById("calibration-video");
-      if (calibrationVideo) {
-        calibrationVideo.srcObject = null;
-      }
-    }
-    // 보정이 끝나면 메인 카메라를 다시 시작해준다.
-    startCamera();
-  }
 
   function logPerformance(message) {
     const timestamp = new Date().toISOString();
@@ -728,34 +237,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-<<<<<<< HEAD
-  // 오디오 활성화 버튼
-  enableAudioButton.addEventListener("click", async () => {
-    try {
-      initializeAudio();
-
-      if (globalAudioContext) {
-        await globalAudioContext.resume();
-      }
-
-      audioEnabled = true;
-      enableAudioButton.textContent = "🔊 경고음 활성화됨";
-      enableAudioButton.disabled = true;
-      audioStatusDisplay.textContent = "경고음: 활성화 (진동포함)";
-      audioStatusDisplay.style.color = "#00ff00";
-
-      console.log("✅ 경고음이 활성화되었습니다.");
-
-      playWarningBeep();
-    } catch (error) {
-      console.error("오디오 활성화 실패:", error);
-      audioStatusDisplay.textContent = "경고음: 활성화 실패";
-      audioStatusDisplay.style.color = "#ff0000";
-    }
-  });
-
-=======
->>>>>>> e5af032 (Resolve merge conflicts)
   async function loadModels() {
     try {
       logPerformance("모델 목록 로드 시작");
@@ -795,28 +276,10 @@ document.addEventListener("DOMContentLoaded", () => {
     logPerformance("카메라 초기화 시작");
 
     try {
-<<<<<<< HEAD
-      // 기존 스트림 정리
-      if (video.srcObject) {
-        const tracks = video.srcObject.getTracks();
-        tracks.forEach((track) => track.stop());
-        video.srcObject = null;
-        logPerformance("기존 카메라 스트림 정리됨");
-      }
-
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-
-      window.currentCameraStream = newStream;
-      video.srcObject = newStream;
-
-=======
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
       });
       video.srcObject = stream;
->>>>>>> e5af032 (Resolve merge conflicts)
       video.onloadedmetadata = () => {
         const cameraTime = performance.now() - cameraStart;
         logPerformance(
@@ -836,22 +299,6 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       console.error("카메라 접근 에러:", err);
       statusDiv.textContent = "카메라를 사용할 수 없습니다.";
-    }
-  }
-
-  // 동기/블로킹 함수(prompt, confirm) 호출 후 멈춘 카메라를 재활성화하는 함수
-  async function unfreezeCamera() {
-    logPerformance("카메라 스트림을 재활성화합니다.");
-    try {
-      if (video.srcObject) {
-        video.srcObject.getVideoTracks().forEach(track => track.stop());
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      video.srcObject = stream;
-      await video.play();
-      logPerformance("카메라 스트림 재활성화 완료.");
-    } catch (error) {
-      console.error("카메라 재활성화 실패:", error);
     }
   }
 
@@ -926,9 +373,6 @@ document.addEventListener("DOMContentLoaded", () => {
       );
 
       try {
-        // 깊이 분석 병렬 실행
-        analyzeDepthForObstacles(canvas);
-
         const requestStart = performance.now();
         logPerformance(`서버 요청 시작 (${endpoint})...`);
 
@@ -1022,34 +466,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }, "image/jpeg");
   }
 
-<<<<<<< HEAD
-=======
-  async function analyzeDepthForObstacles(canvas) {
-    const calibrationFactor = sessionStorage.getItem("calibrationFactor");
-    if (!calibrationFactor) return;
-
-    canvas.toBlob(async (blob) => {
-      const formData = new FormData();
-      formData.append("image", blob, "depth_check.jpg");
-      formData.append("calibrationFactor", calibrationFactor);
-
-      try {
-        const response = await fetch("/analyze_depth", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await response.json();
-
-        if (response.ok && data.should_warn) {
-          playWarningBeep();
-        }
-      } catch (error) {
-        console.warn("깊이 분석 요청 오류:", error);
-      }
-    }, "image/jpeg");
-  }
-
->>>>>>> e5af032 (Resolve merge conflicts)
   function speak(text, onEndCallback) {
     const ttsStart = performance.now();
     logPerformance(`TTS 시작 - 텍스트: "${text}", 속도: ${currentTTSSpeed}배`);
@@ -1104,19 +520,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 시작/정지 토글 버튼
   captureButton.addEventListener("click", () => {
-<<<<<<< HEAD
-    initializeAudio();
-
-    if (isNavigating) {
-      logPerformance("길찾기 모드 중에는 시각 보조 기능을 시작할 수 없습니다.");
-      speak("길찾기 안내 중에는 주변 상황 분석을 시작할 수 없습니다.");
-      return;
-    }
-=======
-    // 오디오 컨텍스트를 사용자의 첫 상호작용 시점에 초기화
-    initializeAudio();
->>>>>>> e5af032 (Resolve merge conflicts)
-
     if (isAutoCapturing) {
       logPerformance("자동 캡처 정지 요청");
 
@@ -1124,10 +527,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const stopAll = confirm(
           "주변 상황 분석을 중지합니다.\n길안내도 함께 중지하시겠습니까?"
         );
-
-        // confirm 창으로 인해 카메라가 멈추므로 재활성화합니다.
-        unfreezeCamera();
-
         if (stopAll) {
           stopNavigation();
           return;
@@ -1203,10 +602,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const destination = prompt("목적지를 입력하세요 (예: 서울역):");
-
-    // prompt로 인해 카메라가 멈추는 현상을 해결하기 위해 스트림을 재활성화합니다.
-    unfreezeCamera();
-
     if (!destination) {
       logPerformance("목적지 입력 취소됨");
       return;
@@ -1271,42 +666,14 @@ document.addEventListener("DOMContentLoaded", () => {
     settingsButton.disabled = true;
     logPerformance("GPS 연동 길찾기 안내 시작");
 
-<<<<<<< HEAD
-    if (!isAutoCapturing) {
-      isAutoCapturing = true;
-      captureButton.textContent = "🔄 분석 정지";
-      captureButton.classList.add("stop");
-      modeSelect.disabled = true;
-      modelSelect.disabled = true;
-      intervalInput.disabled = true;
-      logPerformance("길안내와 함께 자동 이미지 분석 시작");
-
-      setTimeout(() => {
-        runAutoCapture();
-      }, 2000);
-    }
-
-    if (navigationSession.current_instruction) {
-      statusDiv.textContent = navigationSession.current_instruction;
-      logPerformance(`첫 안내: ${navigationSession.current_instruction}`);
-      speak(
-        "경로 안내와 주변 상황 분석을 시작합니다. " +
-          navigationSession.current_instruction
-=======
-    // 길안내 시작 시, 자동 분석이 이미 실행중이 아니라면 사용자에게 물어봄
     if (!isAutoCapturing) {
       const startAnalysis = confirm(
-        "길안내와 함께 주변 상황 분석도 시작하시겠습니까?\\n\\n" +
-        "- 예: 길안내 + 주변 상황 분석 동시 진행\\n" +
-        "- 아니오: 길안내만 진행 (나중에 스페이스바로 분석 시작 가능)"
->>>>>>> e5af032 (Resolve merge conflicts)
+        "길안내와 함께 주변 상황 분석도 시작하시겠습니까?\n\n" +
+          "- 예: 길안내 + 주변 상황 분석 동시 진행\n" +
+          "- 아니오: 길안내만 진행 (나중에 스페이스바로 분석 시작 가능)"
       );
 
-      // confirm 창으로 인해 카메라가 멈추므로 재활성화합니다.
-      unfreezeCamera();
-
       if (startAnalysis) {
-        // "예"를 누르면 자동 분석 시작
         isAutoCapturing = true;
         captureButton.textContent = "🔄 분석 정지";
         captureButton.classList.add("stop");
@@ -1315,14 +682,14 @@ document.addEventListener("DOMContentLoaded", () => {
         intervalInput.disabled = true;
         logPerformance("길안내와 함께 자동 이미지 분석 시작");
 
-        // runAutoCapture는 speak 이후에 호출되어 자연스러운 흐름을 만듬
+        setTimeout(() => {
+          runAutoCapture();
+        }, 3000);
       } else {
         logPerformance("길안내만 시작 - 이미지 분석은 사용자가 수동으로 제어");
       }
     }
 
-<<<<<<< HEAD
-=======
     if (navigationSession.current_instruction) {
       logPerformance(`첫 안내: ${navigationSession.current_instruction}`);
 
@@ -1330,23 +697,17 @@ document.addEventListener("DOMContentLoaded", () => {
         statusDiv.textContent = `📍 길안내 + 🔄 상황 분석: ${navigationSession.current_instruction} (ESC: 길안내 중지)`;
         speak(
           "경로 안내와 주변 상황 분석을 함께 시작합니다. " +
-          navigationSession.current_instruction,
-          () => {
-            // TTS가 끝난 후 자동 캡처 시작
-            runAutoCapture();
-          }
+            navigationSession.current_instruction
         );
       } else {
         statusDiv.textContent = `📍 길안내 진행 중: ${navigationSession.current_instruction} (ESC: 길안내 중지, 스페이스: 상황 분석 시작)`;
         speak(
           "경로 안내를 시작합니다. 주변 상황 분석은 스페이스바를 눌러 별도로 시작할 수 있습니다. " +
-          navigationSession.current_instruction
+            navigationSession.current_instruction
         );
       }
     }
 
-    // 카메라 스트림을 멈추지 않으므로, 이 부분에서 별도의 카메라 제어 로직은 불필요
->>>>>>> e5af032 (Resolve merge conflicts)
     startLocationTracking();
   }
 
@@ -1439,56 +800,42 @@ document.addEventListener("DOMContentLoaded", () => {
       }).catch((err) => {
         logPerformance(`세션 종료 요청 실패: ${err.message}`);
       });
+
       navigationSession = null;
     }
 
-<<<<<<< HEAD
-=======
-    isNavigating = false;
-    isProcessing = false; // 분석 중 상태 플래그를 확실하게 초기화
->>>>>>> e5af032 (Resolve merge conflicts)
+    // 이미지 분석이 실행 중인 경우에만 중지 처리
     if (isAutoCapturing) {
       isAutoCapturing = false;
       clearTimeout(captureLoop);
       window.speechSynthesis.cancel();
-      // 서버에도 자동 처리 중지를 명시적으로 요청
-      fetch("/stop_auto_processing", { method: "POST" })
-        .then((res) => res.json())
-        .then((data) =>
-          logPerformance(
-            `서버 중지 응답: ${data.message || JSON.stringify(data)}`
-          )
-        )
-        .catch((err) => logPerformance(`서버 중지 요청 실패: ${err}`));
+
+      captureButton.textContent = "🔄 시작";
+      captureButton.classList.remove("stop");
+      modeSelect.disabled = false;
+      modelSelect.disabled = false;
+      intervalInput.disabled = false;
+      logPerformance("자동 이미지 분석 중지됨");
+
+      statusDiv.textContent =
+        "길안내와 주변 상황 분석을 모두 중지했습니다. (스페이스: 분석 시작, 📍버튼: 길찾기)";
+      speak("길찾기 안내와 주변 상황 분석을 모두 중지했습니다.");
+    } else {
+      modeSelect.disabled = false;
+      modelSelect.disabled = false;
+      intervalInput.disabled = false;
+
+      statusDiv.textContent =
+        "길안내를 중지했습니다. (스페이스: 분석 시작, 📍버튼: 길찾기)";
+      speak("길찾기 안내를 중지했습니다.");
     }
 
-    // 버튼 및 UI 상태를 완전히 초기 상태로 복원
-    captureButton.textContent = "시작";
-    captureButton.classList.remove("stop");
-    captureButton.disabled = false;
+    isNavigating = false;
     directionsButton.textContent = "📍 길찾기";
-<<<<<<< HEAD
-    settingsButton.disabled = false;
-    statusDiv.textContent =
-      "모든 기능이 중지되었습니다. (스페이스: 분석 시작, 📍버튼: 길찾기)";
-    logPerformance("길찾기 안내 중지됨");
-    speak("길찾기 안내와 주변 상황 분석을 모두 중지했습니다.");
-
-    setTimeout(() => {
-      logPerformance("길찾기 중지 후 카메라 재시작 시도");
-      startCamera();
-    }, 1000);
-=======
     directionsButton.disabled = false;
     settingsButton.disabled = false;
-    modelSelect.disabled = false;
-    intervalInput.disabled = false;
-    modeSelect.disabled = false;
 
-    statusDiv.textContent = "길안내를 중지했습니다. (스페이스: 분석 시작)";
     logPerformance("길찾기 안내 중지됨");
-    speak("길찾기 안내를 중지했습니다.");
->>>>>>> e5af032 (Resolve merge conflicts)
   }
 
   function finishNavigation() {
@@ -1510,58 +857,44 @@ document.addEventListener("DOMContentLoaded", () => {
       }).catch((err) => {
         logPerformance(`세션 종료 요청 실패: ${err.message}`);
       });
+
       navigationSession = null;
     }
 
-<<<<<<< HEAD
-=======
-    isNavigating = false;
-    isProcessing = false; // 분석 중 상태 플래그를 확실하게 초기화
->>>>>>> e5af032 (Resolve merge conflicts)
+    // 이미지 분석이 실행 중인 경우에만 중지 처리
     if (isAutoCapturing) {
       isAutoCapturing = false;
       clearTimeout(captureLoop);
       window.speechSynthesis.cancel();
-      // 서버에도 자동 처리 중지를 명시적으로 요청
-      fetch("/stop_auto_processing", { method: "POST" })
-        .then((res) => res.json())
-        .then((data) =>
-          logPerformance(
-            `서버 중지 응답: ${data.message || JSON.stringify(data)}`
-          )
-        )
-        .catch((err) => logPerformance(`서버 중지 요청 실패: ${err}`));
+
+      captureButton.textContent = "🔄 시작";
+      captureButton.classList.remove("stop");
+      modeSelect.disabled = false;
+      modelSelect.disabled = false;
+      intervalInput.disabled = false;
+      logPerformance("자동 이미지 분석 완료됨");
+
+      statusDiv.textContent =
+        "🎉 목적지 도착! 길안내와 상황 분석을 모두 종료했습니다. (스페이스: 분석 시작, 📍버튼: 새 길찾기)";
+      speak(
+        "축하합니다! 목적지에 안전하게 도착했습니다. 길안내와 주변 상황 분석을 모두 종료합니다."
+      );
+    } else {
+      modeSelect.disabled = false;
+      modelSelect.disabled = false;
+      intervalInput.disabled = false;
+
+      statusDiv.textContent =
+        "🎉 목적지 도착! 길안내를 종료했습니다. (스페이스: 분석 시작, 📍버튼: 새 길찾기)";
+      speak("축하합니다! 목적지에 안전하게 도착했습니다. 길안내를 종료합니다.");
     }
 
-    // 버튼 및 UI 상태를 완전히 초기 상태로 복원
-    captureButton.textContent = "시작";
-    captureButton.classList.remove("stop");
-    captureButton.disabled = false;
+    isNavigating = false;
     directionsButton.textContent = "📍 길찾기";
-<<<<<<< HEAD
-    settingsButton.disabled = false;
-    statusDiv.textContent =
-      "🎉 목적지 도착! 모든 기능이 종료되었습니다. (스페이스: 분석 시작, 📍버튼: 새 길찾기)";
-    logPerformance("길찾기 안내 완료");
-    speak(
-      "축하합니다! 목적지에 안전하게 도착했습니다. 모든 안내를 종료합니다."
-    );
-
-    setTimeout(() => {
-      logPerformance("길찾기 완료 후 카메라 재시작 시도");
-      startCamera();
-    }, 1000);
-=======
     directionsButton.disabled = false;
     settingsButton.disabled = false;
-    modelSelect.disabled = false;
-    intervalInput.disabled = false;
-    modeSelect.disabled = false;
 
-    statusDiv.textContent = "🎉 목적지 도착! (스페이스: 분석 시작)";
     logPerformance("길찾기 안내 완료");
-    speak("목적지에 도착했습니다. 길안내를 종료합니다.");
->>>>>>> e5af032 (Resolve merge conflicts)
   }
 
   logPerformance("페이지 로드 완료, 모델 목록 및 카메라 초기화 시작");
