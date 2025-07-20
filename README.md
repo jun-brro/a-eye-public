@@ -15,4 +15,9 @@ python server.py
 ```
 
 To set depth anything model, refer to depthanything_v2_test/README.md
+
 All checkpoints in this repo was downloaded from the referred route in depthanything_v2_test/README.md
+
+⚠️CAUTION⚠️
+
+The web server is using **free-limit** Gemini API, which might cause **daily quota exceed** issue. If you face such issue, contact kevinkim0325@gmail.com or brulee@yonsei.ac.kr or pljh0906@yonsei.ac.kr
